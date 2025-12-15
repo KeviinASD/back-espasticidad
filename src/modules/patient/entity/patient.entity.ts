@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
+import { PatientTreatment } from '../../patient-treatments/entity/patient-treatment.entity';
 
 @Entity('patients')
 export class Patient {
@@ -13,4 +14,7 @@ export class Patient {
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
+
+  @OneToMany(() => PatientTreatment, (patientTreatment) => patientTreatment.patient)
+  patientTreatments: PatientTreatment[];
 }

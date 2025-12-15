@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
@@ -20,7 +21,11 @@ export class UsersService {
   }
 
   async findOneById(id: number) {
-    return this.userRepository.findOne({where: {id}});
+    const user = await this.userRepository.findOne({where: {id}});
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return user;
   }
 
   async findOne(email: string) {
@@ -41,15 +46,40 @@ export class UsersService {
   }
 
   async findByIdWithRole(id: number) {
-    const {password, ...user} = await this.userRepository.findOne({
+    const user = await this.userRepository.findOne({
       where: { id },
       relations: ['role', 'role.permissions']
-    })
-
-    return user;
+    });
+    
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    
+    const {password, ...result} = user;
+    return result;
   }
   
-  findAll() {
-    return this.userRepository.find({});
+  async findAll() {
+    return this.userRepository.find({
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
+    const user = await this.findOneById(id);
+    
+    // Si se actualiza la contraseña, hashearla
+    if (updateUserDto.password) {
+      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+    }
+    
+    Object.assign(user, updateUserDto);
+    
+    return await this.userRepository.save(user);
+  }
+
+  async remove(id: number): Promise<void> {
+    const user = await this.findOneById(id);
+    await this.userRepository.remove(user);
   }
 }

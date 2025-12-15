@@ -2,6 +2,15 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './modules/security/users.module';
 import { PatientModule } from './modules/patient/patient.module';
+import { TreatmentsModule } from './modules/treatments/treatments.module';
+import { PatientTreatmentsModule } from './modules/patient-treatments/patient-treatments.module';
+import { QuestionsModule } from './modules/questions/questions.module';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { AppointmentAnswersModule } from './modules/appointment-answers/appointment-answers.module';
+import { DiagnosesModule } from './modules/diagnoses/diagnoses.module';
+import { AiToolsModule } from './modules/ai-tools/ai-tools.module';
+import { AiEvaluationsModule } from './modules/ai-evaluations/ai-evaluations.module';
+import { SystemLogsModule } from './modules/system-logs/system-logs.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { config, configService, DatabaseConfig } from './config/env.config';
 import { ConfigModule } from '@nestjs/config';
@@ -38,6 +47,15 @@ const c: DatabaseConfig = config.database();
     AuthModule, 
     UsersModule,
     PatientModule,
+    TreatmentsModule,
+    PatientTreatmentsModule,
+    QuestionsModule,
+    AppointmentsModule,
+    AppointmentAnswersModule,
+    DiagnosesModule,
+    AiToolsModule,
+    AiEvaluationsModule,
+    SystemLogsModule,
   ],
   controllers: [],
   providers: [],

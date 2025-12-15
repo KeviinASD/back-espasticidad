@@ -24,26 +24,101 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Backend para el sistema FisioLab - Diagnóstico de Espasticidad
 
-## Installation
+Sistema de gestión para el diagnóstico y seguimiento de pacientes con espasticidad. Permite a los médicos crear citas, recopilar respuestas de pacientes, generar diagnósticos y comparar evaluaciones de diferentes herramientas de IA.
 
+## Características
+
+- ✅ Gestión de médicos y pacientes
+- ✅ Catálogo de tratamientos
+- ✅ Asignación de tratamientos a pacientes
+- ✅ Sistema de citas con múltiples estados
+- ✅ Cuestionarios personalizables
+- ✅ Respuestas numéricas a preguntas
+- ✅ Generación de diagnósticos
+- ✅ Integración con múltiples herramientas de IA (ChatGPT, Copilot)
+- ✅ Comparación y selección de evaluaciones de IA
+- ✅ Sistema de logs para auditoría
+
+## Estructura de Módulos
+
+- **Doctors**: Gestión de médicos
+- **Patients**: Gestión de pacientes
+- **Treatments**: Catálogo de tratamientos disponibles
+- **Patient Treatments**: Asignación de tratamientos a pacientes
+- **Questions**: Preguntas/indicadores para evaluación
+- **Appointments**: Citas de evaluación
+- **Appointment Answers**: Respuestas de los pacientes
+- **Diagnoses**: Diagnósticos generados
+- **AI Tools**: Herramientas de IA disponibles
+- **AI Evaluations**: Evaluaciones generadas por IA
+- **System Logs**: Registro de acciones del sistema
+
+## Requisitos Previos
+
+- Node.js (v18 o superior)
+- PostgreSQL (v12 o superior)
+- npm o yarn
+
+## Instalación
+
+1. Clonar el repositorio
 ```bash
-$ npm install
+git clone <repository-url>
+cd back-espasticidad
 ```
 
-## Running the app
+2. Instalar dependencias
+```bash
+npm install
+```
+
+3. Configurar variables de entorno
+
+Crear un archivo `.env` en la raíz del proyecto:
+
+```env
+# Database
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=tu_usuario
+DATABASE_PASSWORD=tu_contraseña
+DATABASE_NAME=espasticidad_db
+
+# Server
+PORT=3030
+
+# Frontend URLs (separadas por comas)
+FRONTEND_URL=http://localhost:3000,http://localhost:3001
+```
+
+4. Crear la base de datos
+
+Ejecutar el script SQL proporcionado en `base.sql`:
 
 ```bash
-# development
-$ npm run start
+psql -U tu_usuario -d espasticidad_db -f base.sql
+```
 
-# watch mode
+O importar manualmente el archivo `base.sql` en tu cliente de PostgreSQL.
+
+## Ejecutar la Aplicación
+
+```bash
+# Modo desarrollo (con hot-reload)
 $ npm run start:dev
 
-# production mode
+# Modo producción
 $ npm run start:prod
+
+# Modo normal
+$ npm run start
 ```
+
+Una vez iniciado, la API estará disponible en:
+- **API**: `http://localhost:3030`
+- **Swagger Documentation**: `http://localhost:3030/api`
 
 ## Test
 
@@ -58,16 +133,67 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
-## Support
+## Documentación de la API
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Para una documentación completa y detallada de todos los endpoints, consulta el archivo [API_DOCUMENTATION.md](./API_DOCUMENTATION.md).
 
-## Stay in touch
+La documentación incluye:
+- Descripción de todos los módulos
+- Endpoints disponibles con ejemplos
+- Formatos de request y response
+- Flujos de trabajo completos
+- Ejemplos de código para Flutter
+- Guías de implementación
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Estructura del Proyecto
+
+```
+src/
+├── modules/           # Módulos de la aplicación
+│   ├── doctors/       # Gestión de médicos
+│   ├── patient/       # Gestión de pacientes
+│   ├── treatments/    # Catálogo de tratamientos
+│   ├── patient-treatments/  # Tratamientos asignados
+│   ├── questions/     # Preguntas/indicadores
+│   ├── appointments/  # Citas
+│   ├── appointment-answers/  # Respuestas
+│   ├── diagnoses/     # Diagnósticos
+│   ├── ai-tools/      # Herramientas de IA
+│   ├── ai-evaluations/  # Evaluaciones de IA
+│   └── system-logs/   # Logs del sistema
+├── auth/              # Autenticación y autorización
+├── common/            # Utilidades compartidas
+└── config/            # Configuración
+```
+
+## Tecnologías Utilizadas
+
+- **NestJS**: Framework de Node.js
+- **TypeORM**: ORM para PostgreSQL
+- **PostgreSQL**: Base de datos
+- **Swagger**: Documentación de API
+- **class-validator**: Validación de DTOs
+- **JWT**: Autenticación
+
+## Flujo de Trabajo Típico
+
+1. **Crear/Seleccionar Paciente**: Registrar o buscar un paciente
+2. **Asignar Tratamiento**: Vincular un tratamiento al paciente con un médico
+3. **Crear Cita**: Programar una nueva evaluación
+4. **Recopilar Respuestas**: El paciente responde las preguntas
+5. **Generar Diagnóstico**: El sistema genera un diagnóstico basado en las respuestas
+6. **Evaluaciones de IA**: Se generan evaluaciones usando diferentes herramientas de IA
+7. **Seleccionar Mejor Evaluación**: El médico selecciona la evaluación más precisa
+8. **Completar Cita**: Finalizar la evaluación
+
+## Contribuir
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
 
 ## License
 
-Nest is [MIT licensed](LICENSE).
+Este proyecto está bajo la Licencia MIT.
