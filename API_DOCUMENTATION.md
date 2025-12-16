@@ -353,17 +353,67 @@ Content-Type: application/json
 GET /patient-treatments
 ```
 
-#### Obtener Tratamientos por Paciente
+**Query Parameters (opcionales):**
+- `patientId` - Filtrar por ID de paciente
+- `doctorId` - Filtrar por ID de médico
+
+**Ejemplos de uso:**
+
+**1. Obtener todos los tratamientos (sin filtros)**
+```http
+GET /patient-treatments
+```
+
+**Response:**
+```json
+[
+  {
+    "patientTreatmentId": 1,
+    "patientId": 1,
+    "doctorId": 1,
+    "treatmentId": 1,
+    "startDate": "2024-01-15",
+    "endDate": "2024-06-15",
+    "patient": { "patientId": 1, "fullName": "María González" },
+    "doctor": { "id": 1, "fullName": "Dr. Juan Pérez" },
+    "treatment": { "treatmentId": 1, "treatmentName": "Fisioterapia" }
+  },
+  {
+    "patientTreatmentId": 2,
+    "patientId": 2,
+    "doctorId": 1,
+    "treatmentId": 1,
+    "startDate": "2024-02-01",
+    "endDate": "2024-07-01",
+    "patient": { "patientId": 2, "fullName": "Carlos López" },
+    "doctor": { "id": 1, "fullName": "Dr. Juan Pérez" },
+    "treatment": { "treatmentId": 1, "treatmentName": "Fisioterapia" }
+  }
+]
+```
+
+**2. Filtrar solo por paciente**
 ```http
 GET /patient-treatments?patientId=1
 ```
+Retorna todos los tratamientos del paciente con ID 1.
 
-#### Obtener Tratamientos por Médico (Usuario)
+**3. Filtrar solo por médico**
 ```http
 GET /patient-treatments?doctorId=1
 ```
+Retorna todos los tratamientos asignados al médico con ID 1.
 
-**Nota:** `doctorId` ahora hace referencia al `id` de la tabla `user`.
+**4. Filtrar por paciente Y médico**
+```http
+GET /patient-treatments?patientId=1&doctorId=1
+```
+Retorna tratamientos donde el paciente con ID 1 está siendo tratado por el médico con ID 1.
+
+**Nota:** 
+- Los filtros son opcionales y se pueden combinar
+- `doctorId` hace referencia al `id` de la tabla `user`
+- Sin filtros, retorna todos los tratamientos del sistema
 
 #### Obtener Tratamiento de Paciente por ID
 ```http

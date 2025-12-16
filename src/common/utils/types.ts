@@ -1,3 +1,4 @@
+import { ApiProperty } from "@nestjs/swagger";
 import { RoleTier } from "../enums/role.enum";
 
 export type SignInParams = {
@@ -17,11 +18,13 @@ export type JwtPayloadParams = {
     sub: number;
 }
 
-export type resultAndTokenParams = {
+export class resultAndTokenParams {
     user: {
         id: number;
         username: string;
         email: string;
     }
+    @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' })
     acces_token: string;
 }
+

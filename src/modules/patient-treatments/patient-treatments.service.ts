@@ -17,8 +17,18 @@ export class PatientTreatmentsService {
     return await this.patientTreatmentRepository.save(patientTreatment);
   }
 
-  async findAll(): Promise<PatientTreatment[]> {
+  async findAll(filters?: { patientId?: number; doctorId?: number }): Promise<PatientTreatment[]> {
+    const where: any = {};
+    
+    if (filters?.patientId) {
+      where.patientId = filters.patientId;
+    }
+    if (filters?.doctorId) {
+      where.doctorId = filters.doctorId;
+    }
+    
     return await this.patientTreatmentRepository.find({
+      where: Object.keys(where).length > 0 ? where : undefined,
       relations: ['patient', 'doctor', 'treatment'],
       order: { startDate: 'DESC' }
     });

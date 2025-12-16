@@ -15,6 +15,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { config, configService, DatabaseConfig } from './config/env.config';
 import { ConfigModule } from '@nestjs/config';
 import dbConfig from './config/db.config';
+import { SeedingService } from './config/seeding.service';
+import { Treatment } from './modules/treatments/entity/treatment.entity';
 
 const c: DatabaseConfig = config.database();
 
@@ -44,6 +46,7 @@ const c: DatabaseConfig = config.database();
         };
       }
     }),
+    TypeOrmModule.forFeature([Treatment]),
     AuthModule, 
     UsersModule,
     PatientModule,
@@ -58,6 +61,6 @@ const c: DatabaseConfig = config.database();
     SystemLogsModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [SeedingService],
 })
 export class AppModule {}
