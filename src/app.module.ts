@@ -17,6 +17,8 @@ import { ConfigModule } from '@nestjs/config';
 import dbConfig from './config/db.config';
 import { SeedingService } from './config/seeding.service';
 import { Treatment } from './modules/treatments/entity/treatment.entity';
+import { Question } from './modules/questions/entity/question.entity';
+import { AiTool } from './modules/ai-tools/entity/ai-tool.entity';
 
 const c: DatabaseConfig = config.database();
 
@@ -46,7 +48,7 @@ const c: DatabaseConfig = config.database();
         };
       }
     }),
-    TypeOrmModule.forFeature([Treatment]),
+    TypeOrmModule.forFeature([Treatment, Question, AiTool]),
     AuthModule, 
     UsersModule,
     PatientModule,

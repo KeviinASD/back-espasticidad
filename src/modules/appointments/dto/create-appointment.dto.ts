@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsOptional, IsEnum, IsString, Min, Max, MinLength } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsEnum, IsString, Min, Max, IsDateString } from 'class-validator';
 import { AppointmentStatus } from '../entity/appointment.entity';
 
 export class CreateAppointmentDto {
@@ -6,6 +6,10 @@ export class CreateAppointmentDto {
   @IsNotEmpty()
   @Min(1)
   patientTreatmentId: number;
+
+  @IsOptional()
+  @IsDateString()
+  appointmentDate?: string;
 
   @IsOptional()
   @IsEnum(AppointmentStatus)

@@ -20,7 +20,7 @@ export class Appointment {
   @Column({ name: 'patient_treatment_id', type: 'int' })
   patientTreatmentId: number;
 
-  @CreateDateColumn({ name: 'appointment_date', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ name: 'appointment_date', type: 'timestamp', nullable: true })
   appointmentDate: Date;
 
   @Column({ 
