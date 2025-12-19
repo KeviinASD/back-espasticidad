@@ -548,6 +548,92 @@ Content-Type: application/json
 }
 ```
 
+#### Obtener Citas Próximas de un Doctor
+```http
+GET /appointments/doctor/:doctorId/upcoming
+```
+
+**Descripción:**
+Este endpoint retorna las citas próximas de un doctor específico, ordenadas por fecha (las más cercanas primero). Solo incluye citas con estado `SCHEDULED` o `IN_PROGRESS`, ideal para mostrar en el dashboard del doctor.
+
+**Parámetros:**
+- `doctorId` (path parameter): ID del doctor (usuario)
+
+**Ejemplo de Request:**
+```http
+GET /appointments/doctor/1/upcoming
+```
+
+**Response (200 OK):**
+```json
+[
+  {
+    "appointmentId": 1,
+    "patientTreatmentId": 1,
+    "appointmentDate": "2024-12-20T10:00:00.000Z",
+    "status": "SCHEDULED",
+    "progressPercentage": null,
+    "notes": null,
+    "patientTreatment": {
+      "patientTreatmentId": 1,
+      "patientId": 1,
+      "doctorId": 1,
+      "treatmentId": 1,
+      "patient": {
+        "patientId": 1,
+        "fullName": "María González",
+        "birthDate": "1985-05-15"
+      },
+      "doctor": {
+        "id": 1,
+        "fullName": "Dr. Juan Pérez",
+        "email": "juan.perez@example.com"
+      },
+      "treatment": {
+        "treatmentId": 1,
+        "treatmentName": "Fisioterapia para Espasticidad"
+      }
+    }
+  },
+  {
+    "appointmentId": 3,
+    "patientTreatmentId": 2,
+    "appointmentDate": "2024-12-21T14:00:00.000Z",
+    "status": "IN_PROGRESS",
+    "progressPercentage": 50,
+    "notes": "Paciente muestra mejora",
+    "patientTreatment": {
+      "patientTreatmentId": 2,
+      "patientId": 2,
+      "doctorId": 1,
+      "treatmentId": 1,
+      "patient": {
+        "patientId": 2,
+        "fullName": "Carlos López",
+        "birthDate": "1990-03-20"
+      },
+      "doctor": {
+        "id": 1,
+        "fullName": "Dr. Juan Pérez",
+        "email": "juan.perez@example.com"
+      },
+      "treatment": {
+        "treatmentId": 1,
+        "treatmentName": "Fisioterapia para Espasticidad"
+      }
+    }
+  }
+]
+```
+
+**Características:**
+- ✅ Solo retorna citas con estado `SCHEDULED` o `IN_PROGRESS`
+- ✅ Ordenadas por fecha ascendente (las más próximas primero)
+- ✅ Incluye información completa del paciente, doctor y tratamiento
+- ✅ Ideal para dashboard del médico
+
+---
+
 #### Obtener Todas las Citas
 ```http
 GET /appointments

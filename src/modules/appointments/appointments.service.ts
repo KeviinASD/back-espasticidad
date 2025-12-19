@@ -65,5 +65,20 @@ export class AppointmentsService {
     const appointment = await this.findOne(id);
     await this.appointmentRepository.remove(appointment);
   }
+
+  async findUpcomingByDoctor(doctorId: number): Promise<Appointment[]> {
+    return await this.appointmentRepository
+      .createQueryBuilder('appointment')
+      .leftJoinAndSelect('appointment.patientTreatment', 'patientTreatment')
+      .leftJoinAndSelect('patientTreatment.patient', 'patient')
+      .leftJoinAndSelect('patientTreatment.doctor', 'doctor')
+      .leftJoinAndSelect('patientTreatment.treatment', 'treatment')
+      .where('patientTreatment.doctorId = :doctorId', { doctorId })
+      .andWhere('appointment.status IN (:...statuses)', { 
+        statuses: [AppointmentStatus.SCHEDULED, AppointmentStatus.IN_PROGRESS] 
+      })
+      .orderBy('appointment.appointmentDate', 'ASC')
+      .getMany();
+  }
 }
 
