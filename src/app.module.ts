@@ -11,11 +11,13 @@ import { DiagnosesModule } from './modules/diagnoses/diagnoses.module';
 import { AiToolsModule } from './modules/ai-tools/ai-tools.module';
 import { AiEvaluationsModule } from './modules/ai-evaluations/ai-evaluations.module';
 import { SystemLogsModule } from './modules/system-logs/system-logs.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { config, configService, DatabaseConfig } from './config/env.config';
 import { ConfigModule } from '@nestjs/config';
 import dbConfig from './config/db.config';
 import { SeedingService } from './config/seeding.service';
+import { SeedingController } from './config/seeding.controller';
 import { Treatment } from './modules/treatments/entity/treatment.entity';
 import { Question } from './modules/questions/entity/question.entity';
 import { AiTool } from './modules/ai-tools/entity/ai-tool.entity';
@@ -61,8 +63,10 @@ const c: DatabaseConfig = config.database();
     AiToolsModule,
     AiEvaluationsModule,
     SystemLogsModule,
+    AnalyticsModule,
   ],
-  controllers: [],
+  controllers: [SeedingController],
   providers: [SeedingService],
+  exports: [SeedingService],
 })
 export class AppModule {}

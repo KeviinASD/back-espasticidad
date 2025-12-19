@@ -4,7 +4,8 @@ import { CreateQuestionDto } from 'src/modules/questions/dto/create-question.dto
 import { Question } from 'src/modules/questions/entity/question.entity';
 import { CreateAiToolDto } from 'src/modules/ai-tools/dto/create-ai-tool.dto';
 import { AiTool } from 'src/modules/ai-tools/entity/ai-tool.entity';
-import { Repository } from 'typeorm';
+import { AppointmentAnswer } from 'src/modules/appointment-answers/entity/appointment-answer.entity';
+import { Repository, DataSource } from 'typeorm';
 
 // ============== TRATAMIENTOS ==============
 export const treatmentsSeeder: CreateTreatmentDto[] = [
@@ -30,10 +31,19 @@ export const seedTreatments = async (treatmentRepository: Repository<Treatment>)
   }
 };
 
-// ============== PREGUNTAS CUANTITATIVAS ==============
+// ============== PREGUNTAS CUANTITATIVAS (INDICADORES) ==============
 export const questionsSeeder: CreateQuestionDto[] = [
   {
-    questionText: 'Número de espasmos por día'
+    questionText: 'Modified Ashworth Scale (MAS)'
+  },
+  {
+    questionText: 'Frecuencia de espasmos musculares (por día)'
+  },
+  {
+    questionText: 'H-Reflex Ratio (Hmax / Mmax)'
+  },
+  {
+    questionText: 'Stretch Reflex Threshold (SRT) (°/s)'
   },
   {
     questionText: 'Ritmo cardíaco (bpm)'
@@ -43,20 +53,35 @@ export const questionsSeeder: CreateQuestionDto[] = [
   }
 ];
 
-export const seedQuestions = async (questionRepository: Repository<Question>): Promise<void> => {
-  const count = await questionRepository.count();
+export const seedQuestions = async (
+  questionRepository: Repository<Question>,
+  dataSource?: DataSource,
+): Promise<void> => {
+  // NO borrar preguntas existentes, solo agregar las que faltan
+  console.log(`🌱 Verificando preguntas cuantitativas (${questionsSeeder.length} indicadores)...`);
   
-  if (count === 0) {
-    console.log('🌱 Seeding preguntas cuantitativas...');
+  let createdCount = 0;
+  let existingCount = 0;
+  
+  for (const questionData of questionsSeeder) {
+    // Verificar si la pregunta ya existe por su texto
+    const existingQuestion = await questionRepository.findOne({
+      where: { questionText: questionData.questionText }
+    });
     
-    for (const questionData of questionsSeeder) {
+    if (existingQuestion) {
+      console.log(`✓ Pregunta ya existe: ${questionData.questionText}`);
+      existingCount++;
+    } else {
+      // Solo crear si no existe
       const question = questionRepository.create(questionData);
       await questionRepository.save(question);
       console.log(`✅ Pregunta creada: ${questionData.questionText}`);
+      createdCount++;
     }
-  } else {
-    console.log('✓ Preguntas ya existen en la base de datos');
   }
+  
+  console.log(`✅ Seed completado: ${createdCount} nueva(s), ${existingCount} existente(s)`);
 };
 
 // ============== HERRAMIENTAS DE IA ==============

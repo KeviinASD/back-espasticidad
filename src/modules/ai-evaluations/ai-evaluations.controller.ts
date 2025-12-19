@@ -3,6 +3,7 @@ import { AiEvaluationsService } from './ai-evaluations.service';
 import { CreateAiEvaluationDto } from './dto/create-ai-evaluation.dto';
 import { UpdateAiEvaluationDto } from './dto/update-ai-evaluation.dto';
 import { SelectAiEvaluationDto } from './dto/select-ai-evaluation.dto';
+import { GenerateAiEvaluationDto } from './dto/generate-ai-evaluation.dto';
 
 @Controller('ai-evaluations')
 export class AiEvaluationsController {
@@ -12,6 +13,12 @@ export class AiEvaluationsController {
   @HttpCode(HttpStatus.CREATED)
   create(@Body() createAiEvaluationDto: CreateAiEvaluationDto) {
     return this.aiEvaluationsService.create(createAiEvaluationDto);
+  }
+
+  @Post('generate')
+  @HttpCode(HttpStatus.CREATED)
+  generateWithAI(@Body() generateDto: GenerateAiEvaluationDto) {
+    return this.aiEvaluationsService.generateWithCopilot(generateDto);
   }
 
   @Post(':id/select')

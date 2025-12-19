@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from '@nestjs/common';
 
@@ -25,6 +25,19 @@ async function bootstrap() {
     whitelist: true,
     forbidNonWhitelisted: false,
     transform: true,
+    transformOptions: {
+      enableImplicitConversion: true,
+    },
+    exceptionFactory: (errors) => {
+      const messages = errors.map(error => {
+        const constraints = Object.values(error.constraints || {});
+        return `${error.property}: ${constraints.join(', ')}`;
+      });
+      return new BadRequestException({
+        message: 'Error de validación',
+        errors: messages,
+      });
+    },
   }));
 
   /* Configurando Swagger */
