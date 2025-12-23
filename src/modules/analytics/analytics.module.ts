@@ -8,6 +8,7 @@ import { AppointmentAnswer } from '../appointment-answers/entity/appointment-ans
 import { Question } from '../questions/entity/question.entity';
 import { AiEvaluation } from '../ai-evaluations/entity/ai-evaluation.entity';
 import { PatientTreatment } from '../patient-treatments/entity/patient-treatment.entity';
+import { Treatment } from '../treatments/entity/treatment.entity';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PatientTreatment } from '../patient-treatments/entity/patient-treatment
       Question,
       AiEvaluation,
       PatientTreatment,
+      Treatment,
     ]),
   ],
   controllers: [AnalyticsController],
