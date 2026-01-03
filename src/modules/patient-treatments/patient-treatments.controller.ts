@@ -3,6 +3,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody } from 
 import { PatientTreatmentsService } from './patient-treatments.service';
 import { CreatePatientTreatmentDto } from './dto/create-patient-treatment.dto';
 import { UpdatePatientTreatmentDto } from './dto/update-patient-treatment.dto';
+import { ActiveUser } from 'src/common/decorators/active-user.decorator';
+import { User } from 'src/modules/security/entities/user.entity';
 
 @ApiTags('Patient Treatments')
 @Controller('patient-treatments')
@@ -31,26 +33,30 @@ export class PatientTreatmentsController {
     }
   })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
-  create(@Body() createPatientTreatmentDto: CreatePatientTreatmentDto) {
-    return this.patientTreatmentsService.create(createPatientTreatmentDto);
+  create(
+    @Body() createPatientTreatmentDto: CreatePatientTreatmentDto,
+    @ActiveUser() user: Omit<User, 'password'>
+  ) {
+    // Construir el objeto con el doctorId del usuario autenticado (ignorar el que viene del frontend)
+    const treatmentData: CreatePatientTreatmentDto = {
+      patientId: createPatientTreatmentDto.patientId,
+      treatmentId: createPatientTreatmentDto.treatmentId,
+      startDate: createPatientTreatmentDto.startDate,
+      endDate: createPatientTreatmentDto.endDate,
+      doctorId: user.id, // Siempre usar el doctorId del usuario autenticado
+    };
+    return this.patientTreatmentsService.create(treatmentData);
   }
 
   @Get()
   @ApiOperation({ 
     summary: 'Obtener todos los tratamientos de pacientes',
-    description: 'Retorna lista de tratamientos con filtros opcionales por paciente y/o médico' 
+    description: 'Retorna lista de tratamientos del médico autenticado con filtro opcional por paciente' 
   })
   @ApiQuery({ 
     name: 'patientId', 
     required: false, 
     description: 'Filtrar por ID de paciente',
-    type: Number,
-    example: 1
-  })
-  @ApiQuery({ 
-    name: 'doctorId', 
-    required: false, 
-    description: 'Filtrar por ID de médico',
     type: Number,
     example: 1
   })
@@ -73,14 +79,16 @@ export class PatientTreatmentsController {
       ]
     }
   })
-  findAll(@Query('patientId') patientId?: string, @Query('doctorId') doctorId?: string) {
-    const filters: { patientId?: number; doctorId?: number } = {};
+  findAll(
+    @ActiveUser() user: Omit<User, 'password'>,
+    @Query('patientId') patientId?: string
+  ) {
+    const filters: { patientId?: number; doctorId?: number } = {
+      doctorId: user.id // Siempre filtrar por el doctor autenticado
+    };
     
     if (patientId) {
       filters.patientId = parseInt(patientId);
-    }
-    if (doctorId) {
-      filters.doctorId = parseInt(doctorId);
     }
     
     return this.patientTreatmentsService.findAll(filters);
@@ -110,8 +118,11 @@ export class PatientTreatmentsController {
     }
   })
   @ApiResponse({ status: 404, description: 'Tratamiento no encontrado' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.patientTreatmentsService.findOne(id);
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @ActiveUser() user: Omit<User, 'password'>
+  ) {
+    return this.patientTreatmentsService.findOne(id, user.id);
   }
 
   @Patch(':id')
@@ -139,9 +150,10 @@ export class PatientTreatmentsController {
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updatePatientTreatmentDto: UpdatePatientTreatmentDto
+    @Body() updatePatientTreatmentDto: UpdatePatientTreatmentDto,
+    @ActiveUser() user: Omit<User, 'password'>
   ) {
-    return this.patientTreatmentsService.update(id, updatePatientTreatmentDto);
+    return this.patientTreatmentsService.update(id, updatePatientTreatmentDto, user.id);
   }
 
   @Delete(':id')
@@ -153,8 +165,11 @@ export class PatientTreatmentsController {
   @ApiParam({ name: 'id', description: 'ID del tratamiento de paciente', type: Number })
   @ApiResponse({ status: 204, description: 'Tratamiento eliminado exitosamente' })
   @ApiResponse({ status: 404, description: 'Tratamiento no encontrado' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.patientTreatmentsService.remove(id);
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @ActiveUser() user: Omit<User, 'password'>
+  ) {
+    return this.patientTreatmentsService.remove(id, user.id);
   }
 }
 

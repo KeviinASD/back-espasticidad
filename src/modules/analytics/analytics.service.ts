@@ -28,28 +28,20 @@ export class AnalyticsService {
     private treatmentRepository: Repository<Treatment>,
   ) {}
 
-  async getStatistics(period?: string) {
+  async getStatistics(period?: string, doctorId?: number) {
+    if (!doctorId) {
+      throw new Error('Doctor ID is required');
+    }
+
     const dateRange = this.getDateRange(period);
     
     // Calcular evolución mensual de diagnósticos
-    const monthlyEvolution = await this.getMonthlyDiagnosticsEvolution(period);
+    const monthlyEvolution = await this.getMonthlyDiagnosticsEvolution(period, doctorId);
 
     const [totalDiagnoses, totalAppointments, previousPeriodData] = await Promise.all([
-      dateRange
-        ? this.diagnosisRepository.count({
-            where: {
-              diagnosisDate: Between(dateRange.start, dateRange.end),
-            },
-          })
-        : this.diagnosisRepository.count(),
-      dateRange
-        ? this.appointmentRepository.count({
-            where: {
-              appointmentDate: Between(dateRange.start, dateRange.end),
-            },
-          })
-        : this.appointmentRepository.count(),
-      this.getPreviousPeriodData(period),
+      this.countDiagnosesByDoctor(doctorId, dateRange),
+      this.countAppointmentsByDoctor(doctorId, dateRange),
+      this.getPreviousPeriodData(period, doctorId),
     ]);
 
     // Calcular cambios porcentuales
@@ -66,11 +58,13 @@ export class AnalyticsService {
     };
   }
 
-  async getPrevalence() {
-    const totalDiagnoses = await this.diagnosisRepository.count();
-    const withSpasticity = await this.diagnosisRepository.count({
-      where: { hasSpasticity: true },
-    });
+  async getPrevalence(doctorId?: number) {
+    if (!doctorId) {
+      throw new Error('Doctor ID is required');
+    }
+
+    const totalDiagnoses = await this.countDiagnosesByDoctor(doctorId);
+    const withSpasticity = await this.countDiagnosesByDoctor(doctorId, null, true);
     const withoutSpasticity = totalDiagnoses - withSpasticity;
 
     const percentage = totalDiagnoses > 0 
@@ -85,7 +79,11 @@ export class AnalyticsService {
     };
   }
 
-  async getSeverityBreakdown() {
+  async getSeverityBreakdown(doctorId?: number) {
+    if (!doctorId) {
+      throw new Error('Doctor ID is required');
+    }
+
     // Obtener la pregunta MAS
     const masQuestion = await this.questionRepository.findOne({
       where: { questionText: 'Modified Ashworth Scale (MAS)' },
@@ -101,11 +99,14 @@ export class AnalyticsService {
       };
     }
 
-    // Obtener todas las respuestas de MAS
-    const masAnswers = await this.appointmentAnswerRepository.find({
-      where: { questionId: masQuestion.questionId },
-      relations: ['appointment'],
-    });
+    // Obtener todas las respuestas de MAS filtradas por doctor
+    const masAnswers = await this.appointmentAnswerRepository
+      .createQueryBuilder('answer')
+      .innerJoin('answer.appointment', 'appointment')
+      .innerJoin('appointment.patientTreatment', 'pt')
+      .where('answer.questionId = :questionId', { questionId: masQuestion.questionId })
+      .andWhere('pt.doctorId = :doctorId', { doctorId })
+      .getMany();
 
     // Clasificar por grado
     let grade1 = 0; // 0, 1, 1.5
@@ -139,12 +140,21 @@ export class AnalyticsService {
     };
   }
 
-  async getRecentEvaluations(limit: number = 10) {
-    const diagnoses = await this.diagnosisRepository.find({
-      relations: ['appointment', 'appointment.patientTreatment', 'appointment.patientTreatment.patient', 'appointment.patientTreatment.doctor'],
-      order: { diagnosisDate: 'DESC' },
-      take: limit,
-    });
+  async getRecentEvaluations(limit: number = 10, doctorId?: number) {
+    if (!doctorId) {
+      throw new Error('Doctor ID is required');
+    }
+
+    const diagnoses = await this.diagnosisRepository
+      .createQueryBuilder('diagnosis')
+      .innerJoin('diagnosis.appointment', 'appointment')
+      .innerJoin('appointment.patientTreatment', 'pt')
+      .leftJoinAndSelect('pt.patient', 'patient')
+      .leftJoinAndSelect('pt.doctor', 'doctor')
+      .where('pt.doctorId = :doctorId', { doctorId })
+      .orderBy('diagnosis.diagnosisDate', 'DESC')
+      .take(limit)
+      .getMany();
 
     return diagnoses.map((diagnosis) => {
       const patient = diagnosis.appointment?.patientTreatment?.patient;
@@ -162,27 +172,31 @@ export class AnalyticsService {
     });
   }
 
-  async getAiPreferences(period?: string) {
-    const dateRange = this.getDateRange(period);
-    
-    // Construir condición where correctamente
-    let whereCondition: any = { isSelected: true };
-    if (dateRange) {
-      whereCondition = {
-        evaluationDate: Between(dateRange.start, dateRange.end),
-        isSelected: true,
-      };
+  async getAiPreferences(period?: string, doctorId?: number) {
+    if (!doctorId) {
+      throw new Error('Doctor ID is required');
     }
 
-    const evaluations = await this.aiEvaluationRepository.find({
-      where: whereCondition,
-      relations: [
-        'aiTool',
-        'appointment',
-        'appointment.patientTreatment',
-        'appointment.patientTreatment.doctor',
-      ],
-    });
+    const dateRange = this.getDateRange(period);
+
+    // Filtrar evaluaciones por doctor a través de appointments -> patient_treatments
+    const queryBuilder = this.aiEvaluationRepository
+      .createQueryBuilder('evaluation')
+      .innerJoin('evaluation.appointment', 'appointment')
+      .innerJoin('appointment.patientTreatment', 'pt')
+      .leftJoinAndSelect('evaluation.aiTool', 'aiTool')
+      .leftJoinAndSelect('pt.doctor', 'doctor')
+      .where('evaluation.isSelected = :isSelected', { isSelected: true })
+      .andWhere('pt.doctorId = :doctorId', { doctorId });
+
+    if (dateRange) {
+      queryBuilder.andWhere('evaluation.evaluationDate BETWEEN :start AND :end', {
+        start: dateRange.start,
+        end: dateRange.end,
+      });
+    }
+
+    const evaluations = await queryBuilder.getMany();
 
     console.log(`[Analytics] getAiPreferences - Found ${evaluations.length} evaluations with isSelected=true`);
     console.log(`[Analytics] Period: ${period || 'all'}, DateRange:`, dateRange);
@@ -219,10 +233,10 @@ export class AnalyticsService {
       });
 
     // Calcular tendencia semanal
-    const weeklyTrend = await this.getWeeklyAiPreferencesTrend(period);
+    const weeklyTrend = await this.getWeeklyAiPreferencesTrend(period, doctorId);
 
     // Calcular cambio porcentual respecto al período anterior
-    const previousPeriodData = await this.getPreviousPeriodAiPreferences(period);
+    const previousPeriodData = await this.getPreviousPeriodAiPreferences(period, doctorId);
     const chatgptChange = previousPeriodData.chatgptCount > 0
       ? Math.round(((chatgptCount - previousPeriodData.chatgptCount) / previousPeriodData.chatgptCount) * 100)
       : 0;
@@ -239,26 +253,26 @@ export class AnalyticsService {
     };
   }
 
-  async getKpis(period?: string) {
+  async getKpis(period?: string, doctorId?: number) {
+    if (!doctorId) {
+      throw new Error('Doctor ID is required');
+    }
+
     const dateRange = this.getDateRange(period);
     
     const [totalAppointments, totalPatients, totalTreatments, previousPeriodData, appointmentsWeeklyEvolution] = await Promise.all([
-      dateRange
-        ? this.appointmentRepository.count({
-            where: { appointmentDate: Between(dateRange.start, dateRange.end) },
-          })
-        : this.appointmentRepository.count(),
-      this.patientTreatmentRepository.count(),
-      this.patientTreatmentRepository.count(),
-      this.getPreviousPeriodData(period),
-      this.getWeeklyAppointmentsEvolution(period),
+      this.countAppointmentsByDoctor(doctorId, dateRange),
+      this.countPatientTreatmentsByDoctor(doctorId),
+      this.countPatientTreatmentsByDoctor(doctorId),
+      this.getPreviousPeriodData(period, doctorId),
+      this.getWeeklyAppointmentsEvolution(period, doctorId),
     ]);
 
     // Calcular éxito de tratamiento basado en diagnósticos positivos (con espasticidad detectada y luego mejorada)
-    const successRate = await this.calculateSuccessRate(dateRange);
+    const successRate = await this.calculateSuccessRate(dateRange, doctorId);
     
     // Calcular tiempo promedio de recuperación (días entre inicio y fin de tratamiento)
-    const avgRecoveryTime = await this.calculateAverageRecoveryTime();
+    const avgRecoveryTime = await this.calculateAverageRecoveryTime(doctorId);
     
     // Calcular cambios porcentuales
     const appointmentsChange = previousPeriodData.totalAppointments > 0
@@ -270,10 +284,10 @@ export class AnalyticsService {
       : 0;
 
     // Obtener tratamientos recientes
-    const recentTreatments = await this.getRecentTreatments(3);
+    const recentTreatments = await this.getRecentTreatments(3, doctorId);
 
     // Calcular respuesta a espasticidad
-    const spasticityResponse = await this.getSpasticityResponse(dateRange);
+    const spasticityResponse = await this.getSpasticityResponse(dateRange, doctorId);
 
     return {
       totalAppointments,
@@ -289,15 +303,30 @@ export class AnalyticsService {
     };
   }
 
-  private async calculateSuccessRate(dateRange?: { start: Date; end: Date } | null): Promise<number> {
+  private async calculateSuccessRate(dateRange?: { start: Date; end: Date } | null, doctorId?: number): Promise<number> {
+    if (!doctorId) return 85; // Default si no hay doctorId
+    
     // Calcular éxito basado en diagnósticos: pacientes que inicialmente tenían espasticidad y luego mejoraron
     // (simplificado: éxito = porcentaje de diagnósticos positivos que tienen seguimiento exitoso)
     
-    const diagnoses = await this.diagnosisRepository.find({
-      where: dateRange ? { diagnosisDate: Between(dateRange.start, dateRange.end) } : {},
-      relations: ['appointment', 'appointment.patientTreatment'],
-      order: { diagnosisDate: 'ASC' },
-    });
+    const queryBuilder = this.diagnosisRepository
+      .createQueryBuilder('diagnosis')
+      .innerJoin('diagnosis.appointment', 'appointment')
+      .innerJoin('appointment.patientTreatment', 'pt')
+      .leftJoinAndSelect('diagnosis.appointment', 'appointmentSelect')
+      .leftJoinAndSelect('appointmentSelect.patientTreatment', 'patientTreatment')
+      .where('pt.doctorId = :doctorId', { doctorId });
+
+    if (dateRange) {
+      queryBuilder.andWhere('diagnosis.diagnosisDate BETWEEN :start AND :end', {
+        start: dateRange.start,
+        end: dateRange.end,
+      });
+    }
+
+    const diagnoses = await queryBuilder
+      .orderBy('diagnosis.diagnosisDate', 'ASC')
+      .getMany();
 
     if (diagnoses.length === 0) return 0;
 
@@ -333,9 +362,13 @@ export class AnalyticsService {
     return totalCases > 0 ? Math.round((successfulCases / totalCases) * 100) : 85; // Default 85% si no hay datos suficientes
   }
 
-  private async calculateAverageRecoveryTime(): Promise<number> {
+  private async calculateAverageRecoveryTime(doctorId?: number): Promise<number> {
+    if (!doctorId) return 22; // Default si no hay doctorId
+    
     // Calcular tiempo promedio de recuperación (días entre inicio y fin de tratamiento)
-    const allTreatments = await this.patientTreatmentRepository.find();
+    const allTreatments = await this.patientTreatmentRepository.find({
+      where: { doctorId },
+    });
     const treatments = allTreatments.filter(t => t.startDate && t.endDate);
 
     if (treatments.length === 0) return 22; // Default: ~3 semanas
@@ -350,8 +383,11 @@ export class AnalyticsService {
     return Math.round(totalDays / treatments.length / 7 * 10) / 10; // Redondear a 1 decimal en semanas
   }
 
-  private async getRecentTreatments(limit: number = 3) {
+  private async getRecentTreatments(limit: number = 3, doctorId?: number) {
+    if (!doctorId) return [];
+    
     const treatments = await this.patientTreatmentRepository.find({
+      where: { doctorId },
       relations: ['treatment', 'patient', 'appointments'],
       order: { startDate: 'DESC' },
       take: limit,
@@ -381,13 +417,30 @@ export class AnalyticsService {
     });
   }
 
-  private async getSpasticityResponse(dateRange?: { start: Date; end: Date } | null) {
+  private async getSpasticityResponse(dateRange?: { start: Date; end: Date } | null, doctorId?: number) {
+    if (!doctorId) {
+      return { mejora: 65, estable: 25, regresion: 10 }; // Valores por defecto
+    }
+    
     // Calcular distribución de respuesta: mejora, estable, regresión
-    const diagnoses = await this.diagnosisRepository.find({
-      where: dateRange ? { diagnosisDate: Between(dateRange.start, dateRange.end) } : {},
-      relations: ['appointment', 'appointment.patientTreatment'],
-      order: { diagnosisDate: 'ASC' },
-    });
+    const queryBuilder = this.diagnosisRepository
+      .createQueryBuilder('diagnosis')
+      .innerJoin('diagnosis.appointment', 'appointment')
+      .innerJoin('appointment.patientTreatment', 'pt')
+      .leftJoinAndSelect('diagnosis.appointment', 'appointmentSelect')
+      .leftJoinAndSelect('appointmentSelect.patientTreatment', 'patientTreatment')
+      .where('pt.doctorId = :doctorId', { doctorId });
+
+    if (dateRange) {
+      queryBuilder.andWhere('diagnosis.diagnosisDate BETWEEN :start AND :end', {
+        start: dateRange.start,
+        end: dateRange.end,
+      });
+    }
+
+    const diagnoses = await queryBuilder
+      .orderBy('diagnosis.diagnosisDate', 'ASC')
+      .getMany();
 
     const patientEvolution = new Map<number, boolean[]>();
     
@@ -435,7 +488,9 @@ export class AnalyticsService {
     };
   }
 
-  private async getWeeklyAppointmentsEvolution(period?: string) {
+  private async getWeeklyAppointmentsEvolution(period?: string, doctorId?: number) {
+    if (!doctorId) return [0, 0, 0, 0];
+    
     const dateRange = this.getDateRange(period);
     const now = new Date();
     
@@ -449,11 +504,15 @@ export class AnalyticsService {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 7);
       
-      const count = await this.appointmentRepository.count({
-        where: {
-          appointmentDate: Between(weekStart, weekEnd),
-        },
-      });
+      const count = await this.appointmentRepository
+        .createQueryBuilder('appointment')
+        .innerJoin('appointment.patientTreatment', 'pt')
+        .where('pt.doctorId = :doctorId', { doctorId })
+        .andWhere('appointment.appointmentDate BETWEEN :start AND :end', {
+          start: weekStart,
+          end: weekEnd,
+        })
+        .getCount();
       
       weeks.push(count);
     }
@@ -463,7 +522,9 @@ export class AnalyticsService {
     return weeks.map(count => Math.round((count / max) * 100));
   }
 
-  private async getMonthlyDiagnosticsEvolution(period?: string) {
+  private async getMonthlyDiagnosticsEvolution(period?: string, doctorId?: number) {
+    if (!doctorId) return [{ withSpasticity: 0, withoutSpasticity: 0 }];
+    
     const dateRange = this.getDateRange(period);
     const now = new Date();
     
@@ -474,18 +535,28 @@ export class AnalyticsService {
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
       
       const [withSpasticity, withoutSpasticity] = await Promise.all([
-        this.diagnosisRepository.count({
-          where: {
-            diagnosisDate: Between(monthStart, monthEnd),
-            hasSpasticity: true,
-          },
-        }),
-        this.diagnosisRepository.count({
-          where: {
-            diagnosisDate: Between(monthStart, monthEnd),
-            hasSpasticity: false,
-          },
-        }),
+        this.diagnosisRepository
+          .createQueryBuilder('diagnosis')
+          .innerJoin('diagnosis.appointment', 'appointment')
+          .innerJoin('appointment.patientTreatment', 'pt')
+          .where('pt.doctorId = :doctorId', { doctorId })
+          .andWhere('diagnosis.diagnosisDate BETWEEN :start AND :end', {
+            start: monthStart,
+            end: monthEnd,
+          })
+          .andWhere('diagnosis.hasSpasticity = :hasSpasticity', { hasSpasticity: true })
+          .getCount(),
+        this.diagnosisRepository
+          .createQueryBuilder('diagnosis')
+          .innerJoin('diagnosis.appointment', 'appointment')
+          .innerJoin('appointment.patientTreatment', 'pt')
+          .where('pt.doctorId = :doctorId', { doctorId })
+          .andWhere('diagnosis.diagnosisDate BETWEEN :start AND :end', {
+            start: monthStart,
+            end: monthEnd,
+          })
+          .andWhere('diagnosis.hasSpasticity = :hasSpasticity', { hasSpasticity: false })
+          .getCount(),
       ]);
       
       months.push({
@@ -502,7 +573,9 @@ export class AnalyticsService {
     }));
   }
 
-  private async getWeeklyAiPreferencesTrend(period?: string) {
+  private async getWeeklyAiPreferencesTrend(period?: string, doctorId?: number) {
+    if (!doctorId) return [{ chatgpt: 0, copilot: 0 }];
+    
     const now = new Date();
     const weeks = [];
     
@@ -514,13 +587,18 @@ export class AnalyticsService {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 7);
       
-      const evaluations = await this.aiEvaluationRepository.find({
-        where: {
-          evaluationDate: Between(weekStart, weekEnd),
-          isSelected: true,
-        },
-        relations: ['aiTool'],
-      });
+      const evaluations = await this.aiEvaluationRepository
+        .createQueryBuilder('evaluation')
+        .innerJoin('evaluation.appointment', 'appointment')
+        .innerJoin('appointment.patientTreatment', 'pt')
+        .leftJoinAndSelect('evaluation.aiTool', 'aiTool')
+        .where('pt.doctorId = :doctorId', { doctorId })
+        .andWhere('evaluation.evaluationDate BETWEEN :start AND :end', {
+          start: weekStart,
+          end: weekEnd,
+        })
+        .andWhere('evaluation.isSelected = :isSelected', { isSelected: true })
+        .getMany();
 
       const chatgptCount = evaluations.filter(e => 
         e.aiTool?.name?.toLowerCase().includes('chatgpt') || 
@@ -542,23 +620,22 @@ export class AnalyticsService {
     return weeks;
   }
 
-  private async getPreviousPeriodData(period?: string) {
+  private async getPreviousPeriodData(period?: string, doctorId?: number) {
+    if (!doctorId) {
+      return { totalDiagnoses: 0, totalAppointments: 0, totalPatients: 0 };
+    }
+
     if (!period) {
       // Si no hay período, comparar con el mes anterior completo
       const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
+      const dateRange = { start: prevMonthStart, end: prevMonthEnd };
       const [totalDiagnoses, totalAppointments, totalPatients] = await Promise.all([
-        this.diagnosisRepository.count({
-          where: { diagnosisDate: Between(prevMonthStart, prevMonthEnd) },
-        }),
-        this.appointmentRepository.count({
-          where: { appointmentDate: Between(prevMonthStart, prevMonthEnd) },
-        }),
-        this.patientTreatmentRepository.count(),
+        this.countDiagnosesByDoctor(doctorId, dateRange),
+        this.countAppointmentsByDoctor(doctorId, dateRange),
+        this.countPatientTreatmentsByDoctor(doctorId),
       ]);
 
       return { totalDiagnoses, totalAppointments, totalPatients };
@@ -573,21 +650,22 @@ export class AnalyticsService {
     const periodDuration = dateRange.end.getTime() - dateRange.start.getTime();
     const prevStart = new Date(dateRange.start.getTime() - periodDuration);
     const prevEnd = new Date(dateRange.start);
+    const prevDateRange = { start: prevStart, end: prevEnd };
 
     const [totalDiagnoses, totalAppointments, totalPatients] = await Promise.all([
-      this.diagnosisRepository.count({
-        where: { diagnosisDate: Between(prevStart, prevEnd) },
-      }),
-      this.appointmentRepository.count({
-        where: { appointmentDate: Between(prevStart, prevEnd) },
-      }),
-      this.patientTreatmentRepository.count(),
+      this.countDiagnosesByDoctor(doctorId, prevDateRange),
+      this.countAppointmentsByDoctor(doctorId, prevDateRange),
+      this.countPatientTreatmentsByDoctor(doctorId),
     ]);
 
     return { totalDiagnoses, totalAppointments, totalPatients };
   }
 
-  private async getPreviousPeriodAiPreferences(period?: string) {
+  private async getPreviousPeriodAiPreferences(period?: string, doctorId?: number) {
+    if (!doctorId) {
+      return { chatgptCount: 0, copilotCount: 0 };
+    }
+
     const dateRange = this.getDateRange(period);
     if (!dateRange) {
       return { chatgptCount: 0, copilotCount: 0 };
@@ -597,13 +675,18 @@ export class AnalyticsService {
     const prevStart = new Date(dateRange.start.getTime() - periodDuration);
     const prevEnd = new Date(dateRange.start);
 
-    const evaluations = await this.aiEvaluationRepository.find({
-      where: {
-        evaluationDate: Between(prevStart, prevEnd),
-        isSelected: true,
-      },
-      relations: ['aiTool'],
-    });
+    const evaluations = await this.aiEvaluationRepository
+      .createQueryBuilder('evaluation')
+      .innerJoin('evaluation.appointment', 'appointment')
+      .innerJoin('appointment.patientTreatment', 'pt')
+      .leftJoinAndSelect('evaluation.aiTool', 'aiTool')
+      .where('pt.doctorId = :doctorId', { doctorId })
+      .andWhere('evaluation.evaluationDate BETWEEN :start AND :end', {
+        start: prevStart,
+        end: prevEnd,
+      })
+      .andWhere('evaluation.isSelected = :isSelected', { isSelected: true })
+      .getMany();
 
     const chatgptCount = evaluations.filter(e => {
       const toolName = e.aiTool?.name?.toLowerCase() || '';
@@ -641,6 +724,57 @@ export class AnalyticsService {
     }
 
     return { start, end };
+  }
+
+  // Métodos auxiliares para filtrar por doctor
+  private async countDiagnosesByDoctor(
+    doctorId: number,
+    dateRange?: { start: Date; end: Date } | null,
+    hasSpasticity?: boolean
+  ): Promise<number> {
+    const queryBuilder = this.diagnosisRepository
+      .createQueryBuilder('diagnosis')
+      .innerJoin('diagnosis.appointment', 'appointment')
+      .innerJoin('appointment.patientTreatment', 'pt')
+      .where('pt.doctorId = :doctorId', { doctorId });
+
+    if (dateRange) {
+      queryBuilder.andWhere('diagnosis.diagnosisDate BETWEEN :start AND :end', {
+        start: dateRange.start,
+        end: dateRange.end,
+      });
+    }
+
+    if (hasSpasticity !== undefined) {
+      queryBuilder.andWhere('diagnosis.hasSpasticity = :hasSpasticity', { hasSpasticity });
+    }
+
+    return await queryBuilder.getCount();
+  }
+
+  private async countAppointmentsByDoctor(
+    doctorId: number,
+    dateRange?: { start: Date; end: Date } | null
+  ): Promise<number> {
+    const queryBuilder = this.appointmentRepository
+      .createQueryBuilder('appointment')
+      .innerJoin('appointment.patientTreatment', 'pt')
+      .where('pt.doctorId = :doctorId', { doctorId });
+
+    if (dateRange) {
+      queryBuilder.andWhere('appointment.appointmentDate BETWEEN :start AND :end', {
+        start: dateRange.start,
+        end: dateRange.end,
+      });
+    }
+
+    return await queryBuilder.getCount();
+  }
+
+  private async countPatientTreatmentsByDoctor(doctorId: number): Promise<number> {
+    return await this.patientTreatmentRepository.count({
+      where: { doctorId },
+    });
   }
 }
 

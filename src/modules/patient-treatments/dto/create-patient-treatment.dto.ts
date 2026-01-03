@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsOptional, IsDateString, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsDateString, Min, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreatePatientTreatmentDto {
@@ -13,14 +13,13 @@ export class CreatePatientTreatmentDto {
   patientId: number;
 
   @ApiProperty({
-    description: 'ID del médico (usuario)',
+    description: 'ID del médico (usuario) - Se asigna automáticamente del usuario autenticado. Este campo se ignora si se envía.',
     example: 1,
-    minimum: 1
+    minimum: 1,
+    required: false
   })
-  @IsInt()
-  @IsNotEmpty()
-  @Min(1)
-  doctorId: number;
+  @IsOptional()
+  doctorId?: number;
 
   @ApiProperty({
     description: 'ID del tratamiento',
@@ -33,21 +32,25 @@ export class CreatePatientTreatmentDto {
   treatmentId: number;
 
   @ApiProperty({
-    description: 'Fecha de inicio del tratamiento',
+    description: 'Fecha de inicio del tratamiento en formato YYYY-MM-DD',
     example: '2024-01-15',
-    required: false
+    required: false,
+    type: String
   })
   @IsOptional()
-  @IsDateString()
-  startDate?: Date;
+  @IsDateString({}, { message: 'startDate debe ser una fecha válida en formato ISO (YYYY-MM-DD)' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate debe estar en formato YYYY-MM-DD' })
+  startDate?: string;
 
   @ApiProperty({
-    description: 'Fecha de finalización del tratamiento',
+    description: 'Fecha de finalización del tratamiento en formato YYYY-MM-DD',
     example: '2024-06-15',
-    required: false
+    required: false,
+    type: String
   })
   @IsOptional()
-  @IsDateString()
-  endDate?: Date;
+  @IsDateString({}, { message: 'endDate debe ser una fecha válida en formato ISO (YYYY-MM-DD)' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate debe estar en formato YYYY-MM-DD' })
+  endDate?: string;
 }
 

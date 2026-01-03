@@ -4,6 +4,8 @@ import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { AppointmentStatus } from './entity/appointment.entity';
+import { ActiveUser } from 'src/common/decorators/active-user.decorator';
+import { JwtPayloadParams } from 'src/common/utils/types';
 
 @ApiTags('Appointments')
 @Controller('appointments')
@@ -16,116 +18,58 @@ export class AppointmentsController {
     return this.appointmentsService.create(createAppointmentDto);
   }
 
-  @Get('doctor/:doctorId/upcoming')
+  @Get('upcoming')
   @ApiOperation({ 
-    summary: 'Obtener citas próximas de un doctor',
-    description: 'Retorna las citas próximas del doctor ordenadas por fecha (las más cercanas primero). Solo incluye citas con estado SCHEDULED o IN_PROGRESS.' 
-  })
-  @ApiParam({ 
-    name: 'doctorId', 
-    description: 'ID del doctor (usuario)', 
-    type: Number,
-    example: 1 
+    summary: 'Obtener citas próximas del doctor autenticado',
+    description: 'Retorna las citas próximas del doctor autenticado ordenadas por fecha (las más cercanas primero). Solo incluye citas con estado SCHEDULED o IN_PROGRESS.' 
   })
   @ApiResponse({ 
     status: 200, 
     description: 'Lista de citas próximas del doctor',
-    schema: {
-      example: [
-        {
-          appointmentId: 1,
-          patientTreatmentId: 1,
-          appointmentDate: '2024-12-20T10:00:00.000Z',
-          status: 'SCHEDULED',
-          progressPercentage: null,
-          notes: null,
-          patientTreatment: {
-            patientTreatmentId: 1,
-            patientId: 1,
-            doctorId: 1,
-            treatmentId: 1,
-            patient: {
-              patientId: 1,
-              fullName: 'María González',
-              birthDate: '1985-05-15'
-            },
-            doctor: {
-              id: 1,
-              fullName: 'Dr. Juan Pérez',
-              email: 'juan.perez@example.com'
-            },
-            treatment: {
-              treatmentId: 1,
-              treatmentName: 'Fisioterapia para Espasticidad'
-            }
-          }
-        },
-        {
-          appointmentId: 3,
-          patientTreatmentId: 2,
-          appointmentDate: '2024-12-21T14:00:00.000Z',
-          status: 'IN_PROGRESS',
-          progressPercentage: 50,
-          notes: 'Paciente muestra mejora',
-          patientTreatment: {
-            patientTreatmentId: 2,
-            patientId: 2,
-            doctorId: 1,
-            treatmentId: 1,
-            patient: {
-              patientId: 2,
-              fullName: 'Carlos López',
-              birthDate: '1990-03-20'
-            },
-            doctor: {
-              id: 1,
-              fullName: 'Dr. Juan Pérez',
-              email: 'juan.perez@example.com'
-            },
-            treatment: {
-              treatmentId: 1,
-              treatmentName: 'Fisioterapia para Espasticidad'
-            }
-          }
-        }
-      ]
-    }
   })
-  findUpcomingByDoctor(@Param('doctorId', ParseIntPipe) doctorId: number) {
-    return this.appointmentsService.findUpcomingByDoctor(doctorId);
+  findUpcomingByDoctor(@ActiveUser() user: JwtPayloadParams) {
+    return this.appointmentsService.findUpcomingByDoctor(user.sub);
   }
 
   @Get()
   findAll(
     @Query('patientTreatmentId') patientTreatmentId?: string,
-    @Query('status') status?: AppointmentStatus
+    @Query('status') status?: AppointmentStatus,
+    @ActiveUser() user?: JwtPayloadParams
   ) {
     if (patientTreatmentId) {
-      return this.appointmentsService.findByPatientTreatment(parseInt(patientTreatmentId));
+      return this.appointmentsService.findByPatientTreatment(parseInt(patientTreatmentId), user?.sub);
     }
     if (status) {
-      return this.appointmentsService.findByStatus(status);
+      return this.appointmentsService.findByStatus(status, user?.sub);
     }
-    return this.appointmentsService.findAll();
+    return this.appointmentsService.findAll(user?.sub);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.appointmentsService.findOne(id);
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @ActiveUser() user: JwtPayloadParams
+  ) {
+    return this.appointmentsService.findOne(id, user.sub);
   }
 
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updateAppointmentDto: UpdateAppointmentDto
+    @Body() updateAppointmentDto: UpdateAppointmentDto,
+    @ActiveUser() user: JwtPayloadParams
   ) {
-    return this.appointmentsService.update(id, updateAppointmentDto);
+    return this.appointmentsService.update(id, updateAppointmentDto, user.sub);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.appointmentsService.remove(id);
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @ActiveUser() user: JwtPayloadParams
+  ) {
+    return this.appointmentsService.remove(id, user.sub);
   }
 }
 

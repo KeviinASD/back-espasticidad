@@ -47,6 +47,20 @@ const c: DatabaseConfig = config.database();
           database: db.database,
           autoLoadEntities: db.autoLoadEntities,
           synchronize: db.synchronize,
+          // Opciones adicionales para conexiones remotas
+          extra: {
+            // Timeout de conexión en milisegundos (30 segundos)
+            connectionTimeoutMillis: 30000,
+            // Timeout para conexiones inactivas
+            idleTimeoutMillis: 30000,
+            // Número máximo de clientes en el pool
+            max: 20,
+          },
+          // Opciones de reintento
+          retryAttempts: 5,
+          retryDelay: 3000, // 3 segundos entre intentos
+          // SSL deshabilitado (según la URL proporcionada: sslmode=disable)
+          ssl: false,
         };
       }
     }),
