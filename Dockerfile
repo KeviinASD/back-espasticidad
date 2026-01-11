@@ -10,11 +10,8 @@ WORKDIR /app
 # Copiar archivos de dependencias
 COPY package*.json ./
 
-# Instalar dependencias
-RUN npm ci --only=production && npm cache clean --force
-
-# Copiar dependencias de desarrollo para el build
-RUN npm ci
+# Instalar todas las dependencias (incluyendo devDependencies para el build)
+RUN npm ci && npm cache clean --force
 
 # Copiar el código fuente
 COPY . .
@@ -54,4 +51,4 @@ ENV NODE_ENV=production
 ENV PORT=3030
 
 # Comando para iniciar la aplicación
-CMD ["node", "dist/main"]
+CMD ["node", "dist/main.js"]
